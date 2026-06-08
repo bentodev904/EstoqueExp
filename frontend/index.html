@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Estoque · Clínica</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&family=Syne:wght@700;800&display=swap');
+
+  :root {
+    --bg: #f5f0eb;
+    --card: #fffdf9;
+    --border: #e8e0d5;
+    --text: #2d2418;
+    --muted: #9e8e7a;
+    --accent: #e8603c;
+    --accent2: #4a90d9;
+    --accent3: #5bb87a;
+    --warn: #e8a830;
+    --danger: #d94a4a;
+    --radius: 16px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header {
+    background: var(--text); color: #fff; padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  header h1 { font-family: 'Syne', sans-serif; font-size: 20px; letter-spacing: -0.5px; }
+  header h1 span { color: var(--accent); }
+  .header-stats { display: flex; gap: 12px; font-size: 12px; font-weight: 700; }
+  .stat-pill { background: rgba(255,255,255,0.12); border-radius: 20px; padding: 4px 10px; }
+  .stat-pill.warn { background: var(--warn); color: #fff; }
+
+  nav {
+    display: flex; background: var(--card);
+    border-bottom: 2px solid var(--border);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  nav button {
+    flex: 1; min-width: 80px; padding: 14px 8px 12px;
+    border: none; background: transparent;
+    font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700;
+    color: var(--muted); cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -2px;
+    transition: all .2s; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  nav button .nav-icon { font-size: 20px; }
+  nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .view { display: none; padding: 16px; max-width: 600px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  .card {
+    background: var(--card); border-radius: var(--radius);
+    border: 1.5px solid var(--border); padding: 16px;
+    margin-bottom: 12px; box-shadow: var(--shadow);
+  }
+
+  .search-wrap { position: relative; margin-bottom: 16px; }
+  .search-wrap input {
+    width: 100%; padding: 12px 16px 12px 42px;
+    border: 1.5px solid var(--border); border-radius: 12px;
+    font-family: 'Nunito', sans-serif; font-size: 15px;
+    background: var(--card); color: var(--text); outline: none;
+  }
+  .search-wrap input:focus { border-color: var(--accent2); }
+  .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 18px; pointer-events: none; }
+
+  .item-card {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card); border-radius: var(--radius);
+    border: 1.5px solid var(--border); padding: 12px 14px;
+    margin-bottom: 10px; cursor: pointer; transition: all .15s;
+  }
+  .item-card:hover { border-color: var(--accent2); transform: translateY(-1px); }
+  .item-emoji { font-size: 32px; width: 48px; text-align: center; flex-shrink: 0; }
+  .item-info { flex: 1; min-width: 0; }
+  .item-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .item-badge { font-size: 13px; font-weight: 900; padding: 4px 10px; border-radius: 20px; flex-shrink: 0; }
+  .badge-ok { background: #e6f7ec; color: var(--accent3); }
+  .badge-low { background: #fff4e0; color: var(--warn); }
+  .badge-out { background: #fde8e8; color: var(--danger); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 11px 18px; border-radius: 12px; border: none;
+    font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all .15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #d04e2a; }
+  .btn-secondary { background: var(--accent2); color: #fff; }
+  .btn-success { background: var(--accent3); color: #fff; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-ghost { background: var(--border); color: var(--text); }
+  .btn-sm { padding: 7px 12px; font-size: 12px; border-radius: 8px; }
+  .btn-block { width: 100%; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block; font-size: 12px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+  }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+    border-radius: 10px; font-family: 'Nunito', sans-serif; font-size: 15px;
+    background: var(--bg); color: var(--text); outline: none;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: var(--accent2); background: #fff;
+  }
+  .emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-top: 8px; }
+  .emoji-btn {
+    font-size: 22px; padding: 6px; border: 2px solid transparent;
+    border-radius: 8px; cursor: pointer; background: var(--bg); text-align: center; transition: all .1s;
+  }
+  .emoji-btn.selected { border-color: var(--accent); background: #fdf0ec; }
+
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 200;
+    align-items: flex-end; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 24px 24px 0 0;
+    width: 100%; max-width: 600px; max-height: 90vh;
+    overflow-y: auto; padding: 20px;
+    animation: slideUp .25s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(40px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+  .modal-title { font-family: 'Syne', sans-serif; font-size: 20px; margin-bottom: 16px; }
+
+  #scanner-container {
+    position: relative; border-radius: 16px; overflow: hidden;
+    background: #000; margin-bottom: 16px;
+  }
+  #scanner-video { width: 100%; display: block; }
+  .scanner-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .scanner-frame {
+    width: 200px; height: 200px; border: 3px solid var(--accent);
+    border-radius: 16px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.4);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100% { border-color: var(--accent); } 50% { border-color: #ff9b7a; } }
+  #scanner-canvas { display: none; }
+  .scan-result {
+    background: #e6f7ec; border: 1.5px solid var(--accent3);
+    border-radius: 12px; padding: 12px 16px; margin-bottom: 12px;
+    font-weight: 700; color: var(--accent3); display: none;
+  }
+  .scan-result.show { display: block; }
+
+  .qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 12px; }
+  .qr-label { background: #fff; border: 1.5px solid var(--border); border-radius: 12px; padding: 10px 8px; text-align: center; }
+  .qr-label-name { font-size: 11px; font-weight: 700; margin-top: 6px; word-break: break-word; color: var(--text); }
+  .qr-label-cat { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  .loan-card {
+    background: var(--card); border-radius: var(--radius);
+    border: 1.5px solid var(--border); padding: 14px;
+    margin-bottom: 10px; display: flex; align-items: center; gap: 12px;
+  }
+  .loan-emoji { font-size: 28px; flex-shrink: 0; }
+  .loan-info { flex: 1; min-width: 0; }
+  .loan-name { font-weight: 700; font-size: 14px; }
+  .loan-details { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .report-box { background: var(--card); border-radius: 14px; border: 1.5px solid var(--border); padding: 14px; text-align: center; }
+  .report-num { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; line-height: 1; }
+  .report-label { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 4px; }
+
+  .section-title {
+    font-family: 'Syne', sans-serif; font-size: 16px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after { content: ''; flex: 1; height: 1.5px; background: var(--border); }
+
+  .fab {
+    position: fixed; bottom: 80px; right: 20px;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-size: 28px;
+    border: none; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(232,96,60,0.4);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50; transition: all .2s;
+  }
+  .fab:hover { transform: scale(1.1); }
+
+  #toast {
+    position: fixed; bottom: 80px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: #fff;
+    padding: 10px 20px; border-radius: 20px;
+    font-size: 14px; font-weight: 700;
+    opacity: 0; transition: all .3s; z-index: 300;
+    pointer-events: none; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; font-weight: 600; }
+
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  /* loading spinner */
+  .spinner {
+    display: inline-block; width: 20px; height: 20px;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* config banner */
+  #config-banner {
+    background: #fff4e0; border: 1.5px solid var(--warn);
+    border-radius: 12px; padding: 12px 16px; margin: 12px 16px;
+    font-size: 13px; font-weight: 600; color: #7a5800;
+    display: flex; align-items: center; gap: 10px;
+  }
+  #config-banner input {
+    flex: 1; padding: 6px 10px; border: 1.5px solid var(--warn);
+    border-radius: 8px; font-family: 'Nunito', sans-serif; font-size: 13px;
+  }
+  #config-banner button { flex-shrink: 0; }
+
+  @media print {
+    body > *:not(#print-area) { display: none !important; }
+    #print-area { display: block !important; padding: 10mm; }
+    .qr-label { break-inside: avoid; border: 1px solid #ccc !important; }
+  }
+  #print-area { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧩 <span>Estoque</span> Clínica</h1>
+  <div class="header-stats">
+    <div class="stat-pill" id="hdr-total">—</div>
+    <div class="stat-pill warn" id="hdr-loans" style="display:none">0 emprest.</div>
+  </div>
+</header>
+
+<!-- CONFIG BANNER (some enquanto API_URL não está definida) -->
+<div id="config-banner">
+  ⚙️ Cole a URL do seu backend Railway:
+  <input type="text" id="api-url-input" placeholder="https://seu-app.railway.app">
+  <button class="btn btn-primary btn-sm" onclick="saveApiUrl()">Salvar</button>
+</div>
+
+<nav>
+  <button class="active" onclick="showView('estoque', this)"><span class="nav-icon">📦</span>Estoque</button>
+  <button onclick="showView('scanner', this)"><span class="nav-icon">📷</span>Scanner</button>
+  <button onclick="showView('emprestimos', this)"><span class="nav-icon">🔄</span>Empréstimos</button>
+  <button onclick="showView('etiquetas', this)"><span class="nav-icon">🏷️</span>Etiquetas</button>
+  <button onclick="showView('relatorio', this)"><span class="nav-icon">📊</span>Relatório</button>
+</nav>
+
+<button class="fab" id="fab-btn" onclick="openAddModal()">＋</button>
+
+<!-- ESTOQUE -->
+<div class="view active" id="view-estoque">
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="search-input" placeholder="Buscar brinquedo, material…" oninput="renderEstoque()">
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px">
+    <button class="btn btn-ghost btn-sm filter-btn active" onclick="filterCat(this,'todos')">Todos</button>
+    <button class="btn btn-ghost btn-sm filter-btn" onclick="filterCat(this,'brinquedo')">🧸 Brinquedos</button>
+    <button class="btn btn-ghost btn-sm filter-btn" onclick="filterCat(this,'sensorial')">🌀 Sensorial</button>
+    <button class="btn btn-ghost btn-sm filter-btn" onclick="filterCat(this,'pedagógico')">📚 Pedagógico</button>
+    <button class="btn btn-ghost btn-sm filter-btn" onclick="filterCat(this,'motor')">⚽ Motor</button>
+    <button class="btn btn-ghost btn-sm filter-btn" onclick="filterCat(this,'outro')">📦 Outros</button>
+  </div>
+  <div id="lista-estoque"><div class="empty"><div class="spinner"></div></div></div>
+</div>
+
+<!-- SCANNER -->
+<div class="view" id="view-scanner">
+  <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Aponte a câmera para o QR Code da etiqueta.</p>
+  <div id="scanner-container">
+    <video id="scanner-video" playsinline autoplay></video>
+    <canvas id="scanner-canvas"></canvas>
+    <div class="scanner-overlay"><div class="scanner-frame"></div></div>
+  </div>
+  <div class="scan-result" id="scan-result"></div>
+  <div id="scan-actions" style="display:none">
+    <div class="card" id="scan-item-card"></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary btn-block" onclick="openLoanFromScan()">🔄 Registrar Empréstimo</button>
+      <button class="btn btn-success btn-block" onclick="returnFromScan()">✅ Registrar Devolução</button>
+    </div>
+  </div>
+  <div style="margin-top:16px">
+    <button class="btn btn-ghost btn-block" id="scan-toggle" onclick="toggleScanner()">▶ Iniciar câmera</button>
+  </div>
+</div>
+
+<!-- EMPRÉSTIMOS -->
+<div class="view" id="view-emprestimos">
+  <div class="section-title">Ativos agora</div>
+  <div id="lista-emprestimos"></div>
+</div>
+
+<!-- ETIQUETAS -->
+<div class="view" id="view-etiquetas">
+  <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+    Selecione os itens e clique em <strong>Imprimir</strong>. Cole as etiquetas nos materiais.
+  </p>
+  <div class="btn-row" style="margin-bottom:14px">
+    <button class="btn btn-ghost btn-sm" onclick="selectAllLabels()">Selecionar todos</button>
+    <button class="btn btn-primary" onclick="printLabels()">🖨️ Imprimir selecionados</button>
+  </div>
+  <div id="label-select-list"></div>
+</div>
+
+<!-- RELATÓRIO -->
+<div class="view" id="view-relatorio">
+  <div class="report-grid" id="report-grid"></div>
+  <div class="section-title">Status por item</div>
+  <div id="report-list"></div>
+</div>
+
+<!-- MODAL: ADICIONAR/EDITAR -->
+<div class="modal-overlay" id="modal-item">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-item-title">Novo Item</div>
+    <input type="hidden" id="edit-id">
+    <div class="form-group">
+      <label>Ícone</label>
+      <div class="emoji-grid" id="emoji-grid"></div>
+    </div>
+    <div class="form-group">
+      <label>Nome *</label>
+      <input type="text" id="f-name" placeholder="Ex: Bola sensorial grande">
+    </div>
+    <div class="form-group">
+      <label>Categoria</label>
+      <select id="f-cat">
+        <option value="brinquedo">🧸 Brinquedo</option>
+        <option value="sensorial">🌀 Sensorial</option>
+        <option value="pedagógico">📚 Pedagógico</option>
+        <option value="motor">⚽ Motor</option>
+        <option value="outro">📦 Outro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Quantidade total</label>
+      <input type="number" id="f-qty" min="1" value="1">
+    </div>
+    <div class="form-group">
+      <label>Sala / Localização</label>
+      <input type="text" id="f-location" placeholder="Ex: Sala 2, Armário B">
+    </div>
+    <div class="form-group">
+      <label>Observações</label>
+      <textarea id="f-notes" rows="2" placeholder="Estado do item, restrições…"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" style="flex:1" onclick="saveItem()">💾 Salvar</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-item')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DETALHES -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal"><div class="modal-handle"></div><div id="detail-content"></div></div>
+</div>
+
+<!-- MODAL: EMPRÉSTIMO -->
+<div class="modal-overlay" id="modal-loan">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Registrar Empréstimo</div>
+    <input type="hidden" id="loan-item-id">
+    <div class="form-group">
+      <label>Paciente / Turma</label>
+      <input type="text" id="loan-person" placeholder="Nome do paciente ou sala">
+    </div>
+    <div class="form-group">
+      <label>Responsável</label>
+      <input type="text" id="loan-staff" placeholder="Terapeuta responsável">
+    </div>
+    <div class="form-group">
+      <label>Previsão de devolução</label>
+      <input type="datetime-local" id="loan-due">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" style="flex:1" onclick="confirmLoan()">🔄 Confirmar</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-loan')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT AREA -->
+<div id="print-area"><div class="qr-grid" id="print-qr-grid"></div></div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+const EMOJIS = ['🧸','🪀','🎯','🎲','🪁','🏈','⚽','🎨','🖍️','✂️','📚','🧩','🎭','🎪','🪆','🎎','🪅','🎀','🛝','🚂','🚗','✈️','🎸','🥁','🎺','🌀','🧲','🔮','🪄','💡','🔔','🪃','🏐','🎾','🎏'];
+
+let API_URL = localStorage.getItem('clinic_api_url') || '';
+let items = [], loans = [];
+let selectedEmoji = '🧸', currentFilter = 'todos';
+let scannedItemId = null, scannerStream = null, scannerActive = false, animFrame = null;
+
+function saveApiUrl() {
+  const val = document.getElementById('api-url-input').value.trim().replace(/\/$/, '');
+  if (!val.startsWith('http')) { toast('⚠️ URL inválida'); return; }
+  API_URL = val;
+  localStorage.setItem('clinic_api_url', API_URL);
+  document.getElementById('config-banner').style.display = 'none';
+  toast('✅ URL salva!');
+  loadAll();
+}
+
+// Inicializa
+if (API_URL) {
+  document.getElementById('config-banner').style.display = 'none';
+  document.getElementById('api-url-input').value = API_URL;
+  loadAll();
+}
+
+// ══════════════════════════════════════════
+// API
+// ══════════════════════════════════════════
+async function api(method, path, body) {
+  if (!API_URL) { toast('⚠️ Configure a URL do backend primeiro'); return null; }
+  try {
+    const res = await fetch(API_URL + path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || res.statusText);
+    }
+    return res.status === 204 ? null : await res.json();
+  } catch (e) {
+    toast('❌ Erro: ' + e.message);
+    return null;
+  }
+}
+
+async function loadAll() {
+  const [its, lns] = await Promise.all([
+    api('GET', '/api/items'),
+    api('GET', '/api/loans')
+  ]);
+  if (its) items = its;
+  if (lns) loans = lns;
+  updateHeader();
+  renderEstoque();
+}
+
+// ══════════════════════════════════════════
+// HEADER
+// ══════════════════════════════════════════
+function updateHeader() {
+  document.getElementById('hdr-total').textContent = items.length + ' itens';
+  const active = loans.filter(l => !l.returned_at).length;
+  const el = document.getElementById('hdr-loans');
+  if (active > 0) { el.style.display = ''; el.textContent = active + ' emprest.'; }
+  else { el.style.display = 'none'; }
+}
+
+// ══════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════
+function showView(name, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  document.getElementById('fab-btn').style.display = name === 'estoque' ? '' : 'none';
+  if (name !== 'scanner') stopScanner();
+  if (name === 'emprestimos') renderLoans();
+  if (name === 'etiquetas') renderLabelSelect();
+  if (name === 'relatorio') renderReport();
+}
+
+// ══════════════════════════════════════════
+// ESTOQUE
+// ══════════════════════════════════════════
+function filterCat(btn, cat) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = cat;
+  renderEstoque();
+}
+
+function renderEstoque() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  let list = items.filter(i => {
+    const matchCat = currentFilter === 'todos' || i.category === currentFilter;
+    const matchQ = !q || i.name.toLowerCase().includes(q) || (i.location||'').toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+  const el = document.getElementById('lista-estoque');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Nenhum item encontrado</div></div>`;
+    return;
+  }
+  el.innerHTML = list.map(item => {
+    const loanCount = loans.filter(l => l.item_id === item.id && !l.returned_at).length;
+    const available = item.quantity - loanCount;
+    let badgeClass = 'badge-ok', badgeText = available + ' disp.';
+    if (available <= 0) { badgeClass = 'badge-out'; badgeText = 'Indisponível'; }
+    else if (available < 2) { badgeClass = 'badge-low'; }
+    if (loanCount > 0) badgeText += ' · ' + loanCount + '🔄';
+    return `<div class="item-card" onclick="openDetail('${item.id}')">
+      <div class="item-emoji">${item.emoji}</div>
+      <div class="item-info">
+        <div class="item-name">${item.name}</div>
+        <div class="item-sub">${item.location || 'Sem localização'} · ${item.category}</div>
+      </div>
+      <div class="item-badge ${badgeClass}">${badgeText}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// DETALHE
+// ══════════════════════════════════════════
+function openDetail(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const activeLoans = loans.filter(l => l.item_id === id && !l.returned_at);
+  const available = item.quantity - activeLoans.length;
+  document.getElementById('detail-content').innerHTML = `
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:56px">${item.emoji}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-top:8px">${item.name}</div>
+      <div style="color:var(--muted);font-size:13px;margin-top:4px">${item.category} · ${item.location || '—'}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:12px">
+        <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800">${item.quantity}</div>
+        <div style="font-size:11px;color:var(--muted);font-weight:700">TOTAL</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:12px">
+        <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--accent3)">${available}</div>
+        <div style="font-size:11px;color:var(--muted);font-weight:700">DISPONÍVEL</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:12px">
+        <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--accent2)">${activeLoans.length}</div>
+        <div style="font-size:11px;color:var(--muted);font-weight:700">EMPRESTADO</div>
+      </div>
+    </div>
+    ${item.notes ? `<div style="background:var(--bg);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--muted);margin-bottom:14px">💬 ${item.notes}</div>` : ''}
+    ${activeLoans.length ? '<div style="font-weight:700;font-size:13px;margin-bottom:8px">Empréstimos ativos:</div>' +
+      activeLoans.map(l => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg);border-radius:10px;margin-bottom:6px;font-size:13px">
+        <span>👤 ${l.person} <span style="color:var(--muted)">(${l.staff||'—'})</span></span>
+        <button class="btn btn-success btn-sm" onclick="returnLoan('${l.id}')">Devolver</button>
+      </div>`).join('') : ''}
+    <div class="divider"></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-detail');openLoanModal('${id}')">🔄 Emprestar</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-detail');editItem('${id}')">✏️ Editar</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteItem('${id}')">🗑️</button>
+    </div>`;
+  openModal('modal-detail');
+}
+
+// ══════════════════════════════════════════
+// ADD / EDIT
+// ══════════════════════════════════════════
+function buildEmojiGrid() {
+  document.getElementById('emoji-grid').innerHTML = EMOJIS.map(e =>
+    `<div class="emoji-btn${e===selectedEmoji?' selected':''}" onclick="selectEmoji('${e}',this)">${e}</div>`
+  ).join('');
+}
+function selectEmoji(e, el) {
+  document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedEmoji = e;
+}
+
+function openAddModal() {
+  document.getElementById('edit-id').value = '';
+  document.getElementById('modal-item-title').textContent = 'Novo Item';
+  ['f-name','f-location','f-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-qty').value = 1;
+  selectedEmoji = '🧸';
+  buildEmojiGrid();
+  openModal('modal-item');
+}
+
+function editItem(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('edit-id').value = id;
+  document.getElementById('modal-item-title').textContent = 'Editar Item';
+  document.getElementById('f-name').value = item.name;
+  document.getElementById('f-cat').value = item.category;
+  document.getElementById('f-qty').value = item.quantity;
+  document.getElementById('f-location').value = item.location || '';
+  document.getElementById('f-notes').value = item.notes || '';
+  selectedEmoji = item.emoji;
+  buildEmojiGrid();
+  openModal('modal-item');
+}
+
+async function saveItem() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { toast('⚠️ Nome obrigatório'); return; }
+  const id = document.getElementById('edit-id').value;
+  const body = {
+    name, emoji: selectedEmoji,
+    category: document.getElementById('f-cat').value,
+    quantity: parseInt(document.getElementById('f-qty').value) || 1,
+    location: document.getElementById('f-location').value.trim(),
+    notes: document.getElementById('f-notes').value.trim(),
+  };
+  const result = id
+    ? await api('PUT', '/api/items/' + id, body)
+    : await api('POST', '/api/items', body);
+  if (!result) return;
+  await loadAll();
+  closeModal('modal-item');
+  toast('✅ Item salvo!');
+}
+
+async function deleteItem(id) {
+  if (!confirm('Remover este item permanentemente?')) return;
+  const r = await api('DELETE', '/api/items/' + id);
+  if (r === null && !API_URL) return;
+  await loadAll();
+  closeModal('modal-detail');
+  toast('🗑️ Removido');
+}
+
+// ══════════════════════════════════════════
+// LOANS
+// ══════════════════════════════════════════
+function openLoanModal(itemId) {
+  document.getElementById('loan-item-id').value = itemId;
+  document.getElementById('loan-person').value = '';
+  document.getElementById('loan-staff').value = '';
+  const due = new Date(Date.now() + 2 * 3600000);
+  document.getElementById('loan-due').value = due.toISOString().slice(0,16);
+  openModal('modal-loan');
+}
+
+async function confirmLoan() {
+  const item_id = document.getElementById('loan-item-id').value;
+  const person = document.getElementById('loan-person').value.trim();
+  const staff = document.getElementById('loan-staff').value.trim();
+  const due_at = document.getElementById('loan-due').value;
+  if (!person) { toast('⚠️ Informe o paciente/turma'); return; }
+  const result = await api('POST', '/api/loans', { item_id, person, staff, due_at });
+  if (!result) return;
+  await loadAll();
+  closeModal('modal-loan');
+  toast('🔄 Empréstimo registrado!');
+}
+
+async function returnLoan(loanId) {
+  const r = await api('POST', '/api/loans/' + loanId + '/return');
+  if (r === null && !API_URL) return;
+  await loadAll();
+  closeModal('modal-detail');
+  toast('✅ Devolução registrada!');
+}
+
+function renderLoans() {
+  const active = loans.filter(l => !l.returned_at);
+  const el = document.getElementById('lista-emprestimos');
+  if (!active.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Nenhum empréstimo ativo</div></div>`;
+    return;
+  }
+  el.innerHTML = active.map(l => {
+    const item = items.find(i => i.id === l.item_id);
+    if (!item) return '';
+    const due = l.due_at ? new Date(l.due_at) : null;
+    const overdue = due && due < new Date();
+    const dueStr = due ? due.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    return `<div class="loan-card">
+      <div class="loan-emoji">${item.emoji}</div>
+      <div class="loan-info">
+        <div class="loan-name">${item.name}</div>
+        <div class="loan-details">👤 ${l.person} · ${l.staff||'sem responsável'}</div>
+        <div class="loan-details" style="color:${overdue?'var(--danger)':'var(--muted)'}">
+          ⏰ ${overdue?'⚠️ ATRASADO · ':''}Devolver: ${dueStr}
+        </div>
+      </div>
+      <button class="btn btn-success btn-sm" onclick="returnLoan('${l.id}')">✅</button>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// SCANNER
+// ══════════════════════════════════════════
+async function toggleScanner() {
+  if (scannerActive) { stopScanner(); return; }
+  document.getElementById('scan-toggle').textContent = '⏹ Parar câmera';
+  scannerActive = true;
+  try {
+    scannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.getElementById('scanner-video');
+    video.srcObject = scannerStream; video.play();
+    requestAnimationFrame(scanFrame);
+  } catch(e) { toast('❌ Câmera não disponível'); scannerActive = false; document.getElementById('scan-toggle').textContent = '▶ Iniciar câmera'; }
+}
+
+function stopScanner() {
+  if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
+  scannerActive = false;
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  const btn = document.getElementById('scan-toggle');
+  if (btn) btn.textContent = '▶ Iniciar câmera';
+}
+
+function scanFrame() {
+  if (!scannerActive) return;
+  const video = document.getElementById('scanner-video');
+  const canvas = document.getElementById('scanner-canvas');
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(img.data, img.width, img.height);
+    if (code) { handleScan(code.data); return; }
+  }
+  animFrame = requestAnimationFrame(scanFrame);
+}
+
+function handleScan(data) {
+  stopScanner();
+  const item = items.find(i => i.id === data);
+  const resultEl = document.getElementById('scan-result');
+  const actionsEl = document.getElementById('scan-actions');
+  if (item) {
+    scannedItemId = item.id;
+    resultEl.textContent = '✅ Identificado: ' + item.name;
+    resultEl.className = 'scan-result show';
+    resultEl.style = '';
+    const loanCount = loans.filter(l => l.item_id === item.id && !l.returned_at).length;
+    document.getElementById('scan-item-card').innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:40px">${item.emoji}</div>
+        <div>
+          <div style="font-weight:800;font-size:16px">${item.name}</div>
+          <div style="font-size:12px;color:var(--muted)">${item.location||'—'} · ${item.quantity - loanCount} disponível(is)</div>
+        </div>
+      </div>`;
+    actionsEl.style.display = '';
+  } else {
+    resultEl.textContent = '❌ QR Code não reconhecido';
+    resultEl.className = 'scan-result show';
+    resultEl.style.background = '#fde8e8'; resultEl.style.borderColor = 'var(--danger)'; resultEl.style.color = 'var(--danger)';
+    actionsEl.style.display = 'none';
+  }
+}
+
+function openLoanFromScan() {
+  if (!scannedItemId) return;
+  showView('estoque', document.querySelector('nav button'));
+  openLoanModal(scannedItemId);
+}
+
+async function returnFromScan() {
+  if (!scannedItemId) return;
+  const active = loans.filter(l => l.item_id === scannedItemId && !l.returned_at);
+  if (!active.length) { toast('Nenhum empréstimo ativo para este item'); return; }
+  await returnLoan(active[active.length - 1].id);
+  document.getElementById('scan-actions').style.display = 'none';
+}
+
+// ══════════════════════════════════════════
+// ETIQUETAS
+// ══════════════════════════════════════════
+function renderLabelSelect() {
+  document.getElementById('label-select-list').innerHTML = items.map(item => `
+    <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--card);border-radius:12px;border:1.5px solid var(--border);margin-bottom:8px;cursor:pointer">
+      <input type="checkbox" value="${item.id}" style="width:18px;height:18px;accent-color:var(--accent)">
+      <span style="font-size:24px">${item.emoji}</span>
+      <span style="font-weight:700;font-size:14px">${item.name}</span>
+      <span style="margin-left:auto;font-size:12px;color:var(--muted)">${item.location||''}</span>
+    </label>`).join('') || '<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">Nenhum item cadastrado</div></div>';
+}
+
+function selectAllLabels() {
+  document.querySelectorAll('#label-select-list input[type=checkbox]').forEach(cb => cb.checked = true);
+}
+
+function printLabels() {
+  const ids = [...document.querySelectorAll('#label-select-list input:checked')].map(cb => cb.value);
+  if (!ids.length) { toast('⚠️ Selecione ao menos um item'); return; }
+  const grid = document.getElementById('print-qr-grid');
+  grid.innerHTML = '';
+  let pending = ids.length;
+  ids.forEach(id => {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const div = document.createElement('div'); div.className = 'qr-label';
+    const qrDiv = document.createElement('div'); qrDiv.style.cssText = 'display:flex;justify-content:center';
+    new QRCode(qrDiv, { text: item.id, width: 90, height: 90, colorDark: '#2d2418', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    const nameDiv = document.createElement('div'); nameDiv.className = 'qr-label-name'; nameDiv.textContent = item.emoji + ' ' + item.name;
+    const catDiv = document.createElement('div'); catDiv.className = 'qr-label-cat'; catDiv.textContent = item.location || item.category;
+    div.appendChild(qrDiv); div.appendChild(nameDiv); div.appendChild(catDiv);
+    grid.appendChild(div);
+    if (--pending === 0) setTimeout(() => window.print(), 300);
+  });
+}
+
+// ══════════════════════════════════════════
+// RELATÓRIO
+// ══════════════════════════════════════════
+function renderReport() {
+  const totalQty = items.reduce((s,i) => s + i.quantity, 0);
+  const activeLoans = loans.filter(l => !l.returned_at).length;
+  const overdueLoans = loans.filter(l => !l.returned_at && l.due_at && new Date(l.due_at) < new Date()).length;
+  document.getElementById('report-grid').innerHTML = `
+    <div class="report-box"><div class="report-num">${items.length}</div><div class="report-label">Tipos de item</div></div>
+    <div class="report-box"><div class="report-num">${totalQty}</div><div class="report-label">Unidades total</div></div>
+    <div class="report-box" style="border-color:${activeLoans?'var(--accent2)':'var(--border)'}">
+      <div class="report-num" style="color:var(--accent2)">${activeLoans}</div><div class="report-label">Emprestados agora</div>
+    </div>
+    <div class="report-box" style="border-color:${overdueLoans?'var(--danger)':'var(--border)'}">
+      <div class="report-num" style="color:${overdueLoans?'var(--danger)':'var(--text)'}">${overdueLoans}</div><div class="report-label">Em atraso</div>
+    </div>`;
+  document.getElementById('report-list').innerHTML = items.map(item => {
+    const loanCount = loans.filter(l => l.item_id === item.id && !l.returned_at).length;
+    const pct = Math.round((loanCount / item.quantity) * 100);
+    return `<div class="card" style="padding:12px 14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:22px">${item.emoji}</span>
+        <span style="font-weight:700;font-size:14px;flex:1">${item.name}</span>
+        <span style="font-size:13px;color:var(--muted)">${item.quantity-loanCount}/${item.quantity}</span>
+      </div>
+      <div style="background:var(--bg);border-radius:99px;height:6px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${pct>80?'var(--danger)':pct>40?'var(--warn)':'var(--accent2)'};border-radius:99px"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// MODAL / TOAST
+// ══════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
+});
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
