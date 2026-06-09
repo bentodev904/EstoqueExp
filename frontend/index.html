@@ -441,45 +441,83 @@
 // ══════════════════════════════════════════
 const EMOJIS = ['🧸','🪀','🎯','🎲','🪁','🏈','⚽','🎨','🖍️','✂️','📚','🧩','🎭','🎪','🪆','🎎','🪅','🎀','🛝','🚂','🚗','✈️','🎸','🥁','🎺','🌀','🧲','🔮','🪄','💡','🔔','🪃','🏐','🎾','🎏'];
 
-let API_URL  = localStorage.getItem('clinic_api_url')  || '';
-let API_USER = localStorage.getItem('clinic_api_user') || '';
-let API_PASS = localStorage.getItem('clinic_api_pass') || '';
+let API_URL  = localStorage.getItem('clinic_api_url') || 'https://147-15-24-76.sslip.io';
+let API_USER = sessionStorage.getItem('clinic_api_user') || '';
+let API_PASS = sessionStorage.getItem('clinic_api_pass') || '';
 
 let items = [], loans = [];
 let selectedEmoji = '🧸', currentFilter = 'todos';
 let scannedItemId = null, scannerStream = null, scannerActive = false, animFrame = null;
 
-// Monta header Authorization Basic
 function authHeader() {
-  const token = btoa(API_USER + ':' + API_PASS);
-  return 'Basic ' + token;
+  return 'Basic ' + btoa(API_USER + ':' + API_PASS);
 }
 
 function saveApiConfig() {
   const url  = document.getElementById('api-url-input').value.trim().replace(/\/$/, '');
   const user = document.getElementById('api-user-input').value.trim();
   const pass = document.getElementById('api-pass-input').value;
-  if (!url.startsWith('http'))  { toast('⚠️ URL inválida'); return; }
-  if (!user || !pass)           { toast('⚠️ Informe usuário e senha'); return; }
-  API_URL  = url;
+
+  if (!url.startsWith('http')) { toast('⚠️ URL inválida'); return; }
+  if (!user || !pass) { toast('⚠️ Informe usuário e senha'); return; }
+
+  API_URL = url;
   API_USER = user;
   API_PASS = pass;
-  localStorage.setItem('clinic_api_url',  API_URL);
-  localStorage.setItem('clinic_api_user', API_USER);
-  localStorage.setItem('clinic_api_pass', API_PASS);
+
+  localStorage.setItem('clinic_api_url', API_URL);
+  sessionStorage.setItem('clinic_api_user', API_USER);
+  sessionStorage.setItem('clinic_api_pass', API_PASS);
+
   document.getElementById('config-banner').style.display = 'none';
-  toast('✅ Configuração salva!');
+  toast('✅ Login salvo nesta sessão!');
   loadAll();
 }
 
-// Inicializa
+document.getElementById('api-url-input').value = API_URL;
+document.getElementById('api-user-input').value = API_USER;
+
 if (API_URL && API_USER && API_PASS) {
   document.getElementById('config-banner').style.display = 'none';
-  document.getElementById('api-url-input').value  = API_URL;
-  document.getElementById('api-user-input').value = API_USER;
   loadAll();
 }
 
+async function api(method, path, body) {
+  if (!API_URL || !API_USER || !API_PASS) {
+    toast('⚠️ Faça login primeiro');
+    document.getElementById('config-banner').style.display = '';
+    return null;
+  }
+
+  try {
+    const res = await fetch(API_URL + path, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader()
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+
+    if (res.status === 401) {
+      toast('🔒 Usuário ou senha incorretos');
+      sessionStorage.removeItem('clinic_api_user');
+      sessionStorage.removeItem('clinic_api_pass');
+      document.getElementById('config-banner').style.display = '';
+      return null;
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || res.statusText);
+    }
+
+    return res.status === 204 ? null : await res.json();
+  } catch (e) {
+    toast('❌ Erro: ' + e.message);
+    return null;
+  }
+}
 // ══════════════════════════════════════════
 // API  (agora com Authorization: Basic)
 // ══════════════════════════════════════════
