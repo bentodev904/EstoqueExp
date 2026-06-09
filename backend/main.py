@@ -1,16 +1,48 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 from typing import Optional
-import sqlite3, uuid, time, os
+import sqlite3, uuid, time, os, secrets
 
-app = FastAPI(title="Clínica Estoque API")
+# ── CONFIGURAÇÃO DE ACESSO ──
+# Defina as variáveis de ambiente na VM antes de rodar:
+#   export API_USER="clinica"
+#   export API_PASS="sua_senha_aqui"
+API_USER = os.environ.get("API_USER", "admin")
+API_PASS = os.environ.get("API_PASS", "troque_esta_senha")
+
+security = HTTPBasic()
+
+def require_auth(credentials: HTTPBasicCredentials = Depends(security)):
+    user_ok = secrets.compare_digest(credentials.username.encode(), API_USER.encode())
+    pass_ok = secrets.compare_digest(credentials.password.encode(), API_PASS.encode())
+    if not (user_ok and pass_ok):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais inválidas",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
+app = FastAPI(
+    title="Clínica Estoque API",
+    # Remove o /docs e /redoc em produção — mude para True se precisar debugar
+    docs_url=None,
+    redoc_url=None,
+)
+
+# ── CORS: troque pela URL real do seu frontend ──
+ALLOWED_ORIGINS = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "https://147-15-24-76.sslip.io"  # adicione outras separadas por vírgula se precisar
+).split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -66,13 +98,13 @@ class LoanIn(BaseModel):
 
 # ── ITEMS ──
 @app.get("/api/items")
-def list_items():
+def list_items(_: str = Depends(require_auth)):
     with get_db() as db:
         rows = db.execute("SELECT * FROM items ORDER BY name").fetchall()
         return [dict(r) for r in rows]
 
 @app.post("/api/items", status_code=201)
-def create_item(body: ItemIn):
+def create_item(body: ItemIn, _: str = Depends(require_auth)):
     item_id = str(uuid.uuid4())[:8]
     with get_db() as db:
         db.execute(
@@ -83,7 +115,7 @@ def create_item(body: ItemIn):
     return {"id": item_id, **body.dict()}
 
 @app.put("/api/items/{item_id}")
-def update_item(item_id: str, body: ItemIn):
+def update_item(item_id: str, body: ItemIn, _: str = Depends(require_auth)):
     with get_db() as db:
         r = db.execute("SELECT id FROM items WHERE id=?", (item_id,)).fetchone()
         if not r:
@@ -96,7 +128,7 @@ def update_item(item_id: str, body: ItemIn):
     return {"id": item_id, **body.dict()}
 
 @app.delete("/api/items/{item_id}")
-def delete_item(item_id: str):
+def delete_item(item_id: str, _: str = Depends(require_auth)):
     with get_db() as db:
         db.execute("DELETE FROM loans WHERE item_id=?", (item_id,))
         db.execute("DELETE FROM items WHERE id=?", (item_id,))
@@ -104,7 +136,7 @@ def delete_item(item_id: str):
 
 # ── LOANS ──
 @app.get("/api/loans")
-def list_loans(active_only: bool = False):
+def list_loans(active_only: bool = False, _: str = Depends(require_auth)):
     with get_db() as db:
         q = "SELECT * FROM loans"
         if active_only:
@@ -113,7 +145,7 @@ def list_loans(active_only: bool = False):
         return [dict(r) for r in db.execute(q).fetchall()]
 
 @app.post("/api/loans", status_code=201)
-def create_loan(body: LoanIn):
+def create_loan(body: LoanIn, _: str = Depends(require_auth)):
     with get_db() as db:
         item = db.execute("SELECT * FROM items WHERE id=?", (body.item_id,)).fetchone()
         if not item:
@@ -133,7 +165,7 @@ def create_loan(body: LoanIn):
     return {"id": loan_id, **body.dict()}
 
 @app.post("/api/loans/{loan_id}/return")
-def return_loan(loan_id: str):
+def return_loan(loan_id: str, _: str = Depends(require_auth)):
     with get_db() as db:
         r = db.execute("SELECT id FROM loans WHERE id=?", (loan_id,)).fetchone()
         if not r:
