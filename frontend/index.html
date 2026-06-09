@@ -258,9 +258,26 @@
 
 <header>
   <h1>🧩 <span>Estoque</span> Clínica</h1>
-  <div class="header-stats">
-    <div class="stat-pill" id="hdr-total">—</div>
-    <div class="stat-pill warn" id="hdr-loans" style="display:none">0 emprest.</div>
+
+  <div style="display:flex;align-items:center;gap:10px">
+
+    <div class="header-stats">
+      <div class="stat-pill" id="user-pill" style="display:none"></div>
+      <div class="stat-pill" id="hdr-total">—</div>
+      <div class="stat-pill warn" id="hdr-loans" style="display:none">
+        0 emprest.
+      </div>
+    </div>
+
+    <button
+      id="logout-btn"
+      class="btn btn-danger btn-sm"
+      onclick="logout()"
+      style="display:none"
+    >
+      🚪 Sair
+    </button>
+
   </div>
 </header>
 
@@ -506,6 +523,8 @@ async function api(method, path, body) {
     return null;
   }
 
+  document.getElementById('logout-btn').style.display = '';
+
   try {
     const res = await fetch(API_URL + path, {
       method,
@@ -536,39 +555,25 @@ async function api(method, path, body) {
   }
 }
 
-// ══════════════════════════════════════════
-// API  (agora com Authorization: Basic)
-// ══════════════════════════════════════════
-async function api(method, path, body) {
-  if (!API_URL) { toast('⚠️ Configure a conexão primeiro'); return null; }
-  try {
-    const res = await fetch(API_URL + path, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authHeader()
-      },
-      body: body ? JSON.stringify(body) : undefined
-    });
-    if (res.status === 401) {
-      toast('🔒 Usuário ou senha incorretos');
-      document.getElementById('config-banner').style.display = '';
-      return null;
-    }
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || res.statusText);
-    }
-    return res.status === 204 ? null : await res.json();
-  } catch (e) {
-    toast('❌ Erro: ' + e.message);
-    return null;
-  }
+function logout() {
+  sessionStorage.removeItem('clinic_api_user');
+  sessionStorage.removeItem('clinic_api_pass');
+
+  API_USER = '';
+  API_PASS = '';
+
+  location.reload();
 }
 
 async function loadAll() {
   currentUser = await api('GET', '/api/me');
 
+if (currentUser) {
+  document.getElementById('user-pill').style.display = '';
+  document.getElementById('user-pill').textContent =
+    '👤 ' + currentUser.username;
+}
+  
   if (currentUser && currentUser.role === 'admin') {
     document.getElementById('logs-nav-btn').style.display = '';
   } else {
