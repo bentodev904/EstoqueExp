@@ -283,13 +283,16 @@
     <button class="btn btn-primary btn-sm" onclick="saveApiConfig()">Salvar</button>
   </div>
 </div>
-
+  
 <nav>
   <button class="active" onclick="showView('estoque', this)"><span class="nav-icon">📦</span>Estoque</button>
   <button onclick="showView('scanner', this)"><span class="nav-icon">📷</span>Scanner</button>
   <button onclick="showView('emprestimos', this)"><span class="nav-icon">🔄</span>Empréstimos</button>
   <button onclick="showView('etiquetas', this)"><span class="nav-icon">🏷️</span>Etiquetas</button>
   <button onclick="showView('relatorio', this)"><span class="nav-icon">📊</span>Relatório</button>
+  <button id="logs-nav-btn" style="display:none" onclick="showView('logs', this)">
+    <span class="nav-icon">🧾</span>Logs
+  </button>
 </nav>
 
 <button class="fab" id="fab-btn" onclick="openAddModal()">＋</button>
@@ -357,6 +360,19 @@
   <div id="report-list"></div>
 </div>
 
+<!-- LOGS -->
+<div class="view" id="view-logs">
+  <div class="section-title">Histórico de ações</div>
+  <button class="btn btn-ghost btn-sm" onclick="renderLogs()" style="margin-bottom:12px">
+    🔄 Atualizar
+  </button>
+  <div id="logs-list">
+    <div class="empty">
+      <div class="spinner"></div>
+    </div>
+  </div>
+</div>
+  
 <!-- MODAL: ADICIONAR/EDITAR -->
 <div class="modal-overlay" id="modal-item">
   <div class="modal">
@@ -446,6 +462,7 @@ let API_USER = sessionStorage.getItem('clinic_api_user') || '';
 let API_PASS = sessionStorage.getItem('clinic_api_pass') || '';
 
 let items = [], loans = [];
+let currentUser = null;
 let selectedEmoji = '🧸', currentFilter = 'todos';
 let scannedItemId = null, scannerStream = null, scannerActive = false, animFrame = null;
 
@@ -518,6 +535,7 @@ async function api(method, path, body) {
     return null;
   }
 }
+
 // ══════════════════════════════════════════
 // API  (agora com Authorization: Basic)
 // ══════════════════════════════════════════
@@ -549,12 +567,22 @@ async function api(method, path, body) {
 }
 
 async function loadAll() {
+  currentUser = await api('GET', '/api/me');
+
+  if (currentUser && currentUser.role === 'admin') {
+    document.getElementById('logs-nav-btn').style.display = '';
+  } else {
+    document.getElementById('logs-nav-btn').style.display = 'none';
+  }
+
   const [its, lns] = await Promise.all([
     api('GET', '/api/items'),
     api('GET', '/api/loans')
   ]);
+
   if (its) items = its;
   if (lns) loans = lns;
+
   updateHeader();
   renderEstoque();
 }
@@ -583,6 +611,7 @@ function showView(name, btn) {
   if (name === 'emprestimos') renderLoans();
   if (name === 'etiquetas') renderLabelSelect();
   if (name === 'relatorio') renderReport();
+  if (name === 'logs') renderLogs();
 }
 
 // ══════════════════════════════════════════
@@ -945,6 +974,63 @@ function renderReport() {
   }).join('');
 }
 
+async function renderLogs() {
+  const el = document.getElementById('logs-list');
+
+  if (!currentUser || currentUser.role !== 'admin') {
+    el.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🔒</div>
+        <div class="empty-text">Apenas admin pode ver os logs</div>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="empty">
+      <div class="spinner"></div>
+    </div>`;
+
+  const logs = await api('GET', '/api/audit-logs');
+
+  if (!logs || !logs.length) {
+    el.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🧾</div>
+        <div class="empty-text">Nenhum log registrado ainda</div>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = logs.map(log => {
+    const date = new Date(log.created_at * 1000).toLocaleString('pt-BR');
+
+    const actionMap = {
+      create_item: 'criou item',
+      update_item: 'editou item',
+      delete_item: 'apagou item',
+      create_loan: 'registrou empréstimo',
+      return_loan: 'registrou devolução'
+    };
+
+    const action = actionMap[log.action] || log.action;
+
+    return `
+      <div class="card" style="padding:12px 14px">
+        <div style="font-weight:800;font-size:14px">
+          👤 ${log.user} ${action}
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">
+          🕒 ${date}
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">
+          ID: ${log.target || '—'}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+  
 // ══════════════════════════════════════════
 // MODAL / TOAST
 // ══════════════════════════════════════════
