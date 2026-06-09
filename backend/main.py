@@ -34,14 +34,11 @@ app = FastAPI(
 )
 
 # ── CORS: troque pela URL real do seu frontend ──
-ALLOWED_ORIGINS = os.environ.get(
-    "ALLOWED_ORIGINS",
-    "https://147-15-24-76.sslip.io"  # adicione outras separadas por vírgula se precisar
-).split(",")
+ALLOWED_ORIGINS = ["*"],
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    ALLOWED_ORIGINS = ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
