@@ -219,7 +219,6 @@
 
   .divider { height: 1px; background: var(--border); margin: 16px 0; }
 
-  /* loading spinner */
   .spinner {
     display: inline-block; width: 20px; height: 20px;
     border: 3px solid var(--border); border-top-color: var(--accent);
@@ -230,15 +229,22 @@
   /* config banner */
   #config-banner {
     background: #fff4e0; border: 1.5px solid var(--warn);
-    border-radius: 12px; padding: 12px 16px; margin: 12px 16px;
+    border-radius: 12px; padding: 14px 16px; margin: 12px 16px;
     font-size: 13px; font-weight: 600; color: #7a5800;
-    display: flex; align-items: center; gap: 10px;
+  }
+  #config-banner .config-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 8px;
   }
   #config-banner input {
     flex: 1; padding: 6px 10px; border: 1.5px solid var(--warn);
     border-radius: 8px; font-family: 'Nunito', sans-serif; font-size: 13px;
+    background: #fff;
   }
-  #config-banner button { flex-shrink: 0; }
+  #config-banner .config-label {
+    font-size: 11px; font-weight: 700; color: #7a5800;
+    text-transform: uppercase; letter-spacing: .4px;
+    min-width: 60px;
+  }
 
   @media print {
     body > *:not(#print-area) { display: none !important; }
@@ -258,11 +264,24 @@
   </div>
 </header>
 
-<!-- CONFIG BANNER (some enquanto API_URL não está definida) -->
+<!-- CONFIG BANNER -->
 <div id="config-banner">
-  ⚙️ Cole a URL do seu backend Railway:
-  <input type="text" id="api-url-input" placeholder="https://seu-app.railway.app">
-  <button class="btn btn-primary btn-sm" onclick="saveApiUrl()">Salvar</button>
+  ⚙️ Configure a conexão com o backend:
+  <div class="config-row">
+    <span class="config-label">URL</span>
+    <input type="text" id="api-url-input" placeholder="https://147-15-24-76.sslip.io">
+  </div>
+  <div class="config-row">
+    <span class="config-label">Usuário</span>
+    <input type="text" id="api-user-input" placeholder="clinica" autocomplete="username">
+  </div>
+  <div class="config-row">
+    <span class="config-label">Senha</span>
+    <input type="password" id="api-pass-input" placeholder="••••••••" autocomplete="current-password">
+  </div>
+  <div class="config-row" style="justify-content:flex-end;margin-top:10px">
+    <button class="btn btn-primary btn-sm" onclick="saveApiConfig()">Salvar</button>
+  </div>
 </div>
 
 <nav>
@@ -422,39 +441,64 @@
 // ══════════════════════════════════════════
 const EMOJIS = ['🧸','🪀','🎯','🎲','🪁','🏈','⚽','🎨','🖍️','✂️','📚','🧩','🎭','🎪','🪆','🎎','🪅','🎀','🛝','🚂','🚗','✈️','🎸','🥁','🎺','🌀','🧲','🔮','🪄','💡','🔔','🪃','🏐','🎾','🎏'];
 
-let API_URL = localStorage.getItem('clinic_api_url') || '';
+let API_URL  = localStorage.getItem('clinic_api_url')  || '';
+let API_USER = localStorage.getItem('clinic_api_user') || '';
+let API_PASS = localStorage.getItem('clinic_api_pass') || '';
+
 let items = [], loans = [];
 let selectedEmoji = '🧸', currentFilter = 'todos';
 let scannedItemId = null, scannerStream = null, scannerActive = false, animFrame = null;
 
-function saveApiUrl() {
-  const val = document.getElementById('api-url-input').value.trim().replace(/\/$/, '');
-  if (!val.startsWith('http')) { toast('⚠️ URL inválida'); return; }
-  API_URL = val;
-  localStorage.setItem('clinic_api_url', API_URL);
+// Monta header Authorization Basic
+function authHeader() {
+  const token = btoa(API_USER + ':' + API_PASS);
+  return 'Basic ' + token;
+}
+
+function saveApiConfig() {
+  const url  = document.getElementById('api-url-input').value.trim().replace(/\/$/, '');
+  const user = document.getElementById('api-user-input').value.trim();
+  const pass = document.getElementById('api-pass-input').value;
+  if (!url.startsWith('http'))  { toast('⚠️ URL inválida'); return; }
+  if (!user || !pass)           { toast('⚠️ Informe usuário e senha'); return; }
+  API_URL  = url;
+  API_USER = user;
+  API_PASS = pass;
+  localStorage.setItem('clinic_api_url',  API_URL);
+  localStorage.setItem('clinic_api_user', API_USER);
+  localStorage.setItem('clinic_api_pass', API_PASS);
   document.getElementById('config-banner').style.display = 'none';
-  toast('✅ URL salva!');
+  toast('✅ Configuração salva!');
   loadAll();
 }
 
 // Inicializa
-if (API_URL) {
+if (API_URL && API_USER && API_PASS) {
   document.getElementById('config-banner').style.display = 'none';
-  document.getElementById('api-url-input').value = API_URL;
+  document.getElementById('api-url-input').value  = API_URL;
+  document.getElementById('api-user-input').value = API_USER;
   loadAll();
 }
 
 // ══════════════════════════════════════════
-// API
+// API  (agora com Authorization: Basic)
 // ══════════════════════════════════════════
 async function api(method, path, body) {
-  if (!API_URL) { toast('⚠️ Configure a URL do backend primeiro'); return null; }
+  if (!API_URL) { toast('⚠️ Configure a conexão primeiro'); return null; }
   try {
     const res = await fetch(API_URL + path, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader()
+      },
       body: body ? JSON.stringify(body) : undefined
     });
+    if (res.status === 401) {
+      toast('🔒 Usuário ou senha incorretos');
+      document.getElementById('config-banner').style.display = '';
+      return null;
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || res.statusText);
