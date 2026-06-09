@@ -11,7 +11,7 @@ import sqlite3, uuid, time, os, secrets
 #   export API_USER="clinica"
 #   export API_PASS="sua_senha_aqui"
 API_USER = os.environ.get("API_USER", "admin")
-API_PASS = os.environ.get("API_PASS", "troque_esta_senha")
+API_PASS = os.environ.get("API_PASS", "Adm2026!")
 
 security = HTTPBasic()
 
